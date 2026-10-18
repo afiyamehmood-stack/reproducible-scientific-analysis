@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from analyze_viability import load_data
+from analyze_viability import load_data, summarize_data
 
 
 class TestLoadData(unittest.TestCase):
@@ -62,6 +62,57 @@ class TestLoadData(unittest.TestCase):
             path = self.write_csv(directory, content)
             with self.assertRaises(ValueError):
                 load_data(path)
+    
+    def test_mean_viability(self):
+        measurements = [
+            {"concentration_uM": 0, "replicate": 1,
+             "viability_percent": 100},
+            {"concentration_uM": 0, "replicate": 2,
+             "viability_percent": 98},
+            {"concentration_uM": 5, "replicate": 1,
+             "viability_percent": 80},
+            {"concentration_uM": 5, "replicate": 2,
+             "viability_percent": 84},
+        ]
+
+        results = summarize_data(measurements)
+        treatment = results[1]
+
+        self.assertAlmostEqual(
+            treatment["mean_viability_percent"], 82
+        )
+
+    def test_change_relative_to_control(self):
+        measurements = [
+            {"concentration_uM": 0, "replicate": 1,
+             "viability_percent": 100},
+            {"concentration_uM": 0, "replicate": 2,
+             "viability_percent": 100},
+            {"concentration_uM": 5, "replicate": 1,
+             "viability_percent": 80},
+            {"concentration_uM": 5, "replicate": 2,
+             "viability_percent": 80},
+        ]
+
+        results = summarize_data(measurements)
+
+        self.assertAlmostEqual(
+            results[1]["change_vs_control_percentage_points"],
+            -20
+        )
+
+    def test_requires_control_group(self):
+        measurements = [
+            {"concentration_uM": 5, "replicate": 1,
+             "viability_percent": 80},
+            {"concentration_uM": 5, "replicate": 2,
+             "viability_percent": 84},
+        ]
+
+        with self.assertRaises(ValueError):
+            summarize_data(measurements)
+
+
 
 
 if __name__ == "__main__":
