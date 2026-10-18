@@ -63,11 +63,62 @@ def load_data(file_path):
     return measurements
 
 
+import statistics
+
+
+def summarize_data(measurements):
+    """Summarize mean viability and variability at each concentration."""
+    grouped = {}
+
+    for measurement in measurements:
+        concentration = measurement["concentration_uM"]
+        viability = measurement["viability_percent"]
+        grouped.setdefault(concentration, []).append(viability)
+
+    if 0 not in grouped:
+        raise ValueError(
+            "A control group at concentration 0 is required."
+        )
+
+    control_mean = statistics.mean(grouped[0])
+    results = []
+
+    for concentration in sorted(grouped):
+        values = grouped[concentration]
+        mean_viability = statistics.mean(values)
+
+        # Sample standard deviation requires at least two measurements.
+        std_dev = (
+            statistics.stdev(values) if len(values) >= 2 else 0.0
+        )
+
+        results.append({
+            "concentration_uM": concentration,
+            "replicate_count": len(values),
+            "mean_viability_percent": mean_viability,
+            "std_dev_percent": std_dev,
+            "change_vs_control_percentage_points":
+                mean_viability - control_mean,
+        })
+
+    return results
+
+
 def main():
     data_path = Path(__file__).parent / "data" / "cell_viability.csv"
 
     try:
         measurements = load_data(data_path)
+        results = summarize_data(measurements)
+
+for result in results:
+    print(
+        f"{result['concentration_uM']:>5g} µM | "
+        f"Mean: {result['mean_viability_percent']:.2f}% | "
+        f"SD: {result['std_dev_percent']:.2f} | "
+        f"Change vs control: "
+        f"{result['change_vs_control_percentage_points']:+.2f} points"
+    )
         print(f"Successfully loaded {len(measurements)} measurements.")
         print("All measurements passed the validation checks.")
     except (OSError, ValueError) as error:
